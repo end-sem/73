@@ -1,0 +1,654 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Project Jupyter|Home</title>
+    <link rel="icon" type="image/png" href="https://upload.wikimedia.org/wikipedia/commons/thumb/3/38/Jupyter_logo.svg/512px-Jupyter_logo.svg.png" sizes="16x16">
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+        }
+        h1, h2 {
+            color: #2c3e50;
+        }
+        p {
+            font-size: 16px;
+            line-height: 1.6;
+        }
+        code {
+            background-color: #f4f4f4;
+            padding: 10px;
+            display: block;
+            margin-bottom: 20px;
+            border-radius: 5px;
+        }
+        pre {
+            background-color: #f4f4f4;
+            padding: 10px;
+            border-radius: 5px;
+            overflow: auto;
+        }
+    </style>
+</head>
+<body>
+    <h1>EX-1 OLAP Operations</h1>
+    <pre><code>
+import pandas as pd
+
+# Sample data for each dimension
+product_dim = pd.DataFrame({
+    'Product_ID': [1, 2, 3],
+    'Product_Name': ['Laptop', 'Smartphone', 'Tablet'],
+    'Category': ['Electronics', 'Electronics', 'Electronics']
+})
+        
+location_dim = pd.DataFrame({
+    'Store_ID': [101, 102, 103],
+    'City': ['New York', 'Los Angeles', 'Chicago'],
+    'State': ['NY', 'CA', 'IL']
+})
+        
+time_dim = pd.DataFrame({
+    'Time_ID': [1, 2, 3],
+    'Year': [2023, 2023, 2023],
+    'Quarter': [1, 1, 1],
+    'Month': [1, 2, 3]
+})
+        
+# Fact Table with sales amount data
+sales_fact = pd.DataFrame({
+    'Product_ID': [1, 2, 3, 1, 2, 3],
+    'Store_ID': [101, 102, 103, 101, 102, 103],
+    'Time_ID': [1, 1, 1, 2, 2, 2],
+    'Sales_Amount': [2000, 3000, 1500, 2500, 3200, 1600]
+})
+        
+# Create the data cube by merging all tables
+data_cube = sales_fact \
+    .merge(product_dim, on='Product_ID') \
+    .merge(location_dim, on='Store_ID') \
+    .merge(time_dim, on='Time_ID')
+        
+print("Data Cube:")
+display(data_cube)
+        
+# Roll-Up by Quarter
+roll_up = data_cube.groupby(['Year', 'Quarter'])['Sales_Amount'].sum().reset_index()
+print("Roll-Up (Sales by Quarter):")
+display(roll_up)
+        
+# Drill-Down by Month
+drill_down = data_cube.groupby(['Year', 'Quarter', 'Month'])['Sales_Amount'].sum().reset_index()
+print("Drill-Down (Sales by Month):")
+display(drill_down)
+        
+# Slice for Electronics Category
+slice_op = data_cube[data_cube['Category'] == 'Electronics']
+print("Slice (Sales for Electronics Category):")
+display(slice_op)
+        
+# Dice for Electronics in New York
+dice_op = data_cube[(data_cube['Category'] == 'Electronics') & (data_cube['City'] == 'New York')]
+print("Dice (Sales for Electronics in New York):")
+display(dice_op)
+        
+        </code></pre>
+
+
+    <h1>EX-2 Data preprocessing such as data normalization, cleaning, and  dimensionality reduction</h1>  
+    <pre><code>
+import pandas as pd
+from sklearn.preprocessing import MinMaxScaler
+from sklearn.decomposition import PCA
+        
+# Sample data
+data = {
+    'Product_ID': [1, 2, 3, 1, 2, 3, 1, 2, 3, None],
+    'Store_ID': [101, 102, 103, 101, 102, 103, 101, 102, 103, 101],
+    'Time_ID': [202301, 202301, 202301, 202302, 202302, 202302, 202303, 202303, 202303, 202304],
+    'Sales_Amount': [2000, 3000, 1500, 2500, 3200, 1600, 2100, 3100, 1800, None]
+}
+data_cube = pd.DataFrame(data)
+        
+print("Original Data:")
+display(data_cube)
+        
+ # Step 1: Data Cleaning
+# Fill missing values with the column mean
+data_cube['Product_ID'].fillna(data_cube['Product_ID'].mean(), inplace=True)
+data_cube['Sales_Amount'].fillna(data_cube['Sales_Amount'].mean(), inplace=True)
+        
+# Step 2: Data Normalization
+# Scale 'Sales_Amount' to the range [0, 1]
+scaler = MinMaxScaler()
+data_cube['Sales_Amount_Normalized'] = scaler.fit_transform(data_cube[['Sales_Amount']])
+        
+# Step 3: Dimensionality Reduction
+# Apply PCA to reduce dimensions to 2 main components
+features = ['Product_ID', 'Store_ID', 'Time_ID', 'Sales_Amount_Normalized']
+pca = PCA(n_components=2)
+data_cube[['PC1', 'PC2']] = pca.fit_transform(data_cube[features])
+        
+print("\nProcessed Data:")
+display(data_cube[['Product_ID', 'Store_ID', 'Time_ID', 'Sales_Amount', 'Sales_Amount_Normalized', 'PC1', 'PC2']])
+    </code></pre> 
+
+    <h1>EX-3 Apriori algorithm for generating frequent item sets</h1>
+    <pre><code>
+from itertools import combinations
+
+# Sample transactional data
+transactions = [
+    {'milk', 'bread', 'eggs'},
+    {'milk', 'bread'},
+    {'bread', 'eggs'},
+    {'milk', 'eggs'},
+    {'milk', 'bread', 'butter'},
+]
+        
+# Minimum support threshold
+min_support = 2
+        
+# Step 1: Generate 1-item frequent sets
+def find_frequent_itemsets(transactions, min_support):
+    # Count the occurrences of each item
+    item_counts = {}
+    for transaction in transactions:
+        for item in transaction:
+            if item in item_counts:
+                item_counts[item] += 1
+            else:
+                item_counts[item] = 1
+        
+# Keep only items that meet the min_support threshold
+    frequent_itemsets = {frozenset([item]): count for item, count in item_counts.items() if count >= min_support}
+            
+    # Step 2: Iteratively find larger itemsets
+    k = 2
+    while True:
+        # Generate new candidate itemsets of size k by combining frequent itemsets of size k-1
+        candidates = set([i.union(j) for i in frequent_itemsets.keys() for j in frequent_itemsets.keys() if len(i.union(j)) == k])
+        candidate_counts = {itemset: 0 for itemset in candidates}
+        
+        # Count support for each candidate itemset
+        for transaction in transactions:
+            for candidate in candidates:
+                if candidate.issubset(transaction):
+                    candidate_counts[candidate] += 1
+        
+        # Filter candidates by minimum support
+        frequent_candidates = {itemset: count for itemset, count in candidate_counts.items() if count >= min_support}
+        
+        # If no more frequent itemsets are found, break
+        if not frequent_candidates:
+            break
+        
+        # Add the frequent candidates to the list of all frequent itemsets
+        frequent_itemsets.update(frequent_candidates)
+        k += 1
+        
+    return frequent_itemsets
+        
+# Run the Apriori algorithm
+frequent_itemsets = find_frequent_itemsets(transactions, min_support)
+        
+# Display results
+print("Frequent Itemsets:")
+for itemset, count in frequent_itemsets.items():
+    print(f"{set(itemset)}: {count}")  </code></pre>
+
+    <h1>EX-4 FP-Growth Algorithm</h1>
+    <pre><code>
+import pandas as pd
+from mlxtend.frequent_patterns import fpgrowth
+
+# Provided transactions
+transactions = [
+    ['m', 'o', 'n', 'k', 'e', 'y'],
+    ['d', 'o', 'n', 'k', 'e', 'y'],
+    ['m', 'u', 'c', 'k', 'y'],
+    ['m', 'a', 'k', 'e'],
+    ['c', 'o', 'o', 'k', 'i', 'e']
+]
+
+# Convert transactions to a one-hot encoded DataFrame
+all_items = sorted(set(item for transaction in transactions for item in transaction))
+one_hot_encoded_data = pd.DataFrame([[item in transaction for item in all_items] for transaction in transactions], columns=all_items)
+
+# Apply FP-Growth algorithm with a minimum support threshold
+min_support = 2 / len(transactions)  # At least 2 transactions
+frequent_itemsets = fpgrowth(one_hot_encoded_data, min_support=min_support, use_colnames=True)
+
+# Find the most frequent itemset
+most_frequent_itemset = frequent_itemsets.loc[frequent_itemsets['support'].idxmax(), 'itemsets']
+
+# Output results
+print("Frequent Itemsets:")
+print(frequent_itemsets)
+print("\nMost Frequent Itemset:")
+print(most_frequent_itemset)
+    </code></pre>
+    <h1>EX-5 Naive Bayes classifier</h1>
+    <pre><code>
+import pandas as pd
+from sklearn.model_selection import train_test_split
+from sklearn.naive_bayes import GaussianNB
+from sklearn.metrics import accuracy_score, classification_report
+        
+# Sample data with unique data points
+data = {
+    'Fruit': ['Orange', 'Banana', 'Others'],
+    'Yellow': [1, 1, 0],
+    'Sweet': [1, 1, 0],
+    'Long': [1, 0, 1],
+}
+        
+# Convert to DataFrame
+df = pd.DataFrame(data)
+        
+# Features and labels
+X = df[['Yellow', 'Sweet', 'Long']]  # Features
+y = df['Fruit']  # Labels
+        
+# Convert categorical labels to numerical labels
+y = y.map({'Orange': 0, 'Banana': 1, 'Others': 2})
+        
+# Split the data into training and testing sets
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=1/3, random_state=42)
+        
+# Train the Naive Bayes model
+model = GaussianNB()
+model.fit(X_train, y_train)
+        
+# Make predictions and evaluate
+y_pred = model.predict(X_test)
+        
+# Determine the unique classes in the test set
+unique_classes = y_test.unique()
+        
+# Create a mapping from labels to target names
+target_names = ['Orange', 'Banana', 'Others']
+target_names = [target_names[i] for i in unique_classes]
+        
+# Output results
+print(f"Accuracy: {accuracy_score(y_test, y_pred):.2f}")
+print("Classification Report:")
+print(classification_report(y_test, y_pred, labels=unique_classes, target_names=target_names, zero_division=0))
+    </code></pre>
+    <!-- EX-6 Decision Tree Classifier -->
+    <h1>EX-6 Implement Decision Tree Classifier</h1>
+    <p>In this example, we will implement a decision tree classifier using the scikit-learn library in Python. The following code demonstrates how to create a simple decision tree model, train it on a sample dataset, and evaluate its performance.</p>
+
+    <pre><code>
+import pandas as pd
+from sklearn.model_selection import train_test_split
+from sklearn.tree import DecisionTreeClassifier
+from sklearn.preprocessing import LabelEncoder
+from sklearn.metrics import accuracy_score, classification_report
+        
+# Sample dataset with numerical and categorical features
+data = {
+    'Age': [25, 45, 35, 50, 23],
+    'Income': ['High', 'Low', 'Medium', 'Medium', 'Low'],
+    'Student': ['No', 'Yes', 'Yes', 'No', 'Yes'],
+    'Credit_rating': ['Fair', 'Excellent', 'Fair', 'Excellent', 'Fair'],
+    'Buys_computer': ['No', 'No', 'Yes', 'Yes', 'Yes']
+    }
+        
+# Create a DataFrame
+df = pd.DataFrame(data)
+        
+# Separate the target variable from the feature variables
+X = df.drop('Buys_computer', axis=1)
+y = df['Buys_computer']
+        
+# Convert categorical data to numerical using LabelEncoder
+le = LabelEncoder()
+        
+for column in X.columns:
+     if X[column].dtype == 'object':
+        X[column] = le.fit_transform(X[column])
+        
+# Split the data into training and test sets
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.3, random_state=42)
+        
+ # Create and train the Decision Tree Classifier
+clf = DecisionTreeClassifier(random_state=42)
+clf.fit(X_train, y_train)
+        
+ # Make predictions on the test set
+y_pred = clf.predict(X_test)
+        
+ # Evaluate the model
+accuracy = accuracy_score(y_test, y_pred)
+report = classification_report(y_test, y_pred)
+        
+ print(f"Accuracy: {accuracy}")
+print(f"Classification Report:\n{report}")
+</code></pre>
+
+    <!-- EX-7 K-Means Clustering Algorithm -->
+    <h2>EX-7 K-Means Clustering Algorithm</h2>
+    <p>The following example demonstrates how to apply the K-means clustering algorithm using scikit-learn. We'll generate sample data with three distinct clusters, apply the K-means algorithm to classify the data, and visualize the clusters.</p>
+
+    <pre><code>
+import numpy as np
+import matplotlib.pyplot as plt
+from sklearn.cluster import KMeans
+from sklearn.datasets import make_blobs
+        
+# Step 1: Generate sample data
+# Create a dataset with 2 features and 3 centers (clusters)
+X, y = make_blobs(n_samples=300, centers=3, n_features=2, random_state=42)
+        
+# Step 2: Apply K-Means Clustering
+kmeans = KMeans(n_clusters=3, random_state=42)
+kmeans.fit(X)
+        
+# Get cluster centers and labels
+centers = kmeans.cluster_centers_
+labels = kmeans.labels_
+        
+# Step 3: Visualize the clusters
+plt.figure(figsize=(8, 6))
+# Scatter plot of data points, color-coded by their cluster labels
+plt.scatter(X[:, 0], X[:, 1], c=labels, s=50, cmap='viridis')
+        
+# Plot the cluster centers
+plt.scatter(centers[:, 0], centers[:, 1], c='red', s=200, alpha=0.75, marker='X', label='Centroids')
+        
+ # Set title and labels
+plt.title('K-Means Clustering')
+plt.xlabel('Feature 1')
+plt.ylabel('Feature 2')
+plt.legend()
+plt.show()
+    </code></pre>
+
+    <!-- EX-8 DBSCAN Clustering Algorithm -->
+    <h2>EX-8 DBSCAN Clustering Algorithm</h2>
+    <p>DBSCAN (Density-Based Spatial Clustering of Applications with Noise) is a clustering algorithm that identifies high-density regions in data. This example demonstrates how to apply DBSCAN to a non-linear dataset (moons shape) and visualize the clusters.</p>
+
+    <pre><code>
+# Import necessary libraries
+import numpy as np
+import matplotlib.pyplot as plt
+from sklearn.cluster import DBSCAN
+from sklearn.datasets import make_moons
+        
+# Step 1: Generate sample data
+# Create a dataset with 2 features in a non-linear pattern (moons shape)
+X, y = make_moons(n_samples=300, noise=0.05, random_state=42)
+        
+# Step 2: Apply DBSCAN
+# Parameters:
+# eps: The maximum distance between two samples for them to be considered neighbors
+# min_samples: The number of samples (or total weight) in a neighborhood for a point to be considered as a core point
+dbscan = DBSCAN(eps=0.2, min_samples=5)
+labels = dbscan.fit_predict(X)
+        
+# Step 3: Visualize the clusters
+# Get unique labels (cluster numbers and -1 for noise)
+unique_labels = set(labels)
+        
+# Create a color palette for different clusters
+colors = [plt.cm.Spectral(each) for each in np.linspace(0, 1, len(unique_labels))]
+        
+plt.figure(figsize=(8, 6))
+for label, col in zip(unique_labels, colors):
+    if label == -1:
+        # Black used for noise (outliers)
+        col = [0, 0, 0, 1]
+        
+# Plot data points for the current cluster
+cluster_mask = (labels == label)
+xy = X[cluster_mask]
+plt.scatter(xy[:, 0], xy[:, 1], color=tuple(col), label=f'Cluster {label}' if label != -1 else 'Noise')
+        
+# Set title and labels
+plt.title('DBSCAN Clustering')
+plt.xlabel('Feature 1')
+plt.ylabel('Feature 2')
+plt.legend()
+plt.show()
+    </code></pre>
+
+    <!-- EX-9 Outlier Detection using Local Outlier Factor (LOF) -->
+    <h2>EX-9 Outlier Detection using Local Outlier Factor (LOF)</h2>
+    <p>In this example, we apply the Local Outlier Factor (LOF) algorithm to detect outliers in a dataset with clusters. The LOF algorithm identifies points that deviate significantly from the surrounding data.</p>
+
+    <pre><code>
+#Import necessary libraries
+import numpy as np
+import matplotlib.pyplot as plt
+from sklearn.neighbors import LocalOutlierFactor
+from sklearn.datasets import make_blobs
+        
+# Step 1: Generate sample data with outliers
+X, _ = make_blobs(n_samples=300, centers=3, cluster_std=0.7, random_state=42)
+outliers = np.random.uniform(low=-10, high=10, size=(20, 2))
+X = np.concatenate([X, outliers], axis=0)
+        
+# Step 2: Apply Local Outlier Factor (LOF)
+lof = LocalOutlierFactor(n_neighbors=20, contamination=0.05)
+y_pred = lof.fit_predict(X)
+outlier_mask = y_pred == -1
+        
+# Step 3: Visualize data points and outliers
+plt.figure(figsize=(8, 6))
+plt.scatter(X[:, 0], X[:, 1], c='b', label='Normal points')
+plt.scatter(X[outlier_mask][:, 0], X[outlier_mask][:, 1], c='r', label='Outliers', marker='x')
+plt.title('Outlier Detection using LOF')
+plt.legend()
+plt.show()
+        
+    </code></pre>
+
+    <!-- EX-10 Apriori Algorithm and Subgraph Mining -->
+    <h2>EX-10 Apriori Algorithm and Subgraph Mining</h2>
+    <p>This example demonstrates how to use the Apriori algorithm to mine frequent subgraphs from a collection of graphs. Subgraph mining is a common approach to find recurring patterns in graph data.</p>
+
+    <pre><code>
+import networkx as nx
+import matplotlib.pyplot as plt
+from itertools import combinations
+from collections import defaultdict
+        
+# Step 1: Generate sample graphs
+G1 = nx.Graph([(1, 2), (2, 3), (3, 1)])
+G2 = nx.Graph([(1, 2), (2, 4), (4, 1)])
+G3 = nx.Graph([(1, 2), (2, 3), (1, 3)])
+        
+graphs = [G1, G2, G3]
+        
+# Step 2: Function to find all subgraphs of size k
+def find_subgraphs(graph, k):
+    return [graph.subgraph(c) for c in combinations(graph.nodes(), k) if nx.is_connected(graph.subgraph(c))]
+        
+# Step 3: Apriori-like subgraph mining
+def apriori_subgraph_mining(graphs, min_support=2):
+    frequent_subgraphs = defaultdict(int)
+    k = 2
+    while True:
+        current_frequent_subgraphs = defaultdict(int)  # Initialize for current k
+        for graph in graphs:
+            for subgraph in find_subgraphs(graph, k):
+                edges = tuple(sorted(subgraph.edges()))
+                current_frequent_subgraphs[edges] += 1  # Use the current dictionary
+                
+        current_frequent_subgraphs = {sg: count for sg, count in current_frequent_subgraphs.items() if count >= min_support}
+        
+        if not current_frequent_subgraphs:
+             break
+        
+# Update the main dictionary with current findings
+        for edges, count in current_frequent_subgraphs.items():
+            frequent_subgraphs[edges] += count
+        
+        k += 1
+        
+    return frequent_subgraphs
+        
+# Step 4: Run mining and show results
+frequent_subgraphs = apriori_subgraph_mining(graphs)
+        
+# Step 5: Visualize the graphs
+plt.figure(figsize=(10, 5))
+plt.subplot(1, 3, 1)
+nx.draw(G1, with_labels=True)
+plt.title("G1")
+        
+plt.subplot(1, 3, 2)
+nx.draw(G2, with_labels=True)
+plt.title("G2")
+        
+plt.subplot(1, 3, 3)
+nx.draw(G3, with_labels=True)
+plt.title("G3")
+        
+plt.show()
+print("Frequent Subgraphs:", frequent_subgraphs)
+        
+        </code></pre>
+<h1>EX-11 SCAN Algorithm in graph data</h1>
+<pre><code>
+import networkx as nx
+import matplotlib.pyplot as plt
+import random
+
+def scan(graph, eps=0.5, min_pts=2):
+    def structural_similarity(u, v):
+        neighbors_u = set(graph.neighbors(u))
+        neighbors_v = set(graph.neighbors(v))
+        return len(neighbors_u & neighbors_v) / len(neighbors_u | neighbors_v)
+    
+    clusters, outliers = {}, set()
+    visited = set()
+    cluster_id = 0
+    
+    for node in graph.nodes():
+        if node in visited:
+            continue
+        neighborhood = [n for n in graph.nodes() if structural_similarity(node, n) >= eps]
+        
+        if len(neighborhood) >= min_pts:
+            clusters[cluster_id] = [node]
+            for n in neighborhood:
+                if n not in visited:
+                    visited.add(n)
+                    clusters[cluster_id].append(n)
+            cluster_id += 1
+        else:
+            outliers.add(node)
+    
+    return clusters, outliers
+
+# Example graph
+G = nx.karate_club_graph()
+
+# Run SCAN
+clusters, outliers = scan(G, eps=0.5, min_pts=2)
+
+# Visualization
+plt.figure(figsize=(10, 7))
+pos = nx.spring_layout(G, seed=42)  # Position the nodes for visualization
+
+# Assign random colors to each cluster
+colors = {cid: (random.random(), random.random(), random.random()) for cid in clusters}
+
+# Draw clusters
+for cid, nodes in clusters.items():
+    nx.draw_networkx_nodes(G, pos, nodelist=nodes, node_color=[colors[cid]], node_size=100, label=f"Cluster {cid}")
+
+# Draw outliers in a distinct color (e.g., black)
+nx.draw_networkx_nodes(G, pos, nodelist=list(outliers), node_color="black", node_size=100, label="Outliers")
+
+# Draw edges
+nx.draw_networkx_edges(G, pos, alpha=0.5)
+
+# Add labels and show plot
+plt.legend(scatterpoints=1)
+plt.title("SCAN Clustering - Clusters and Outliers")
+plt.show()
+
+</code></pre>
+
+<h1>EX-12 GSpan Algorithm to discover frequent subgraphs in graph database</h1>
+<pre><code>
+import networkx as nx
+import matplotlib.pyplot as plt
+    
+class gSpan:
+    def __init__(self, min_support):
+        self.min_support = min_support
+        self.frequent_subgraphs = []
+        self.graphs = []
+    
+    def add_graph(self, graph):
+        self.graphs.append(graph)
+    
+    def find_frequent_subgraphs(self):
+        self._gspan([], 0)
+    
+    def _gspan(self, prefix, support):
+        if support >= self.min_support and prefix not in [p[0] for p in self.frequent_subgraphs]:
+            self.frequent_subgraphs.append((prefix, support))
+        for edge in self._get_candidate_edges(prefix):
+            new_prefix = prefix + [edge]
+            new_support = self._calculate_support(new_prefix)
+            if new_support >= self.min_support:
+                self._gspan(new_prefix, new_support)
+    
+    def _get_candidate_edges(self, prefix):
+        candidates = set()
+        for g in self.graphs:
+            for edge in g.edges():
+                if not prefix or (edge != prefix[-1]):
+                    candidates.add(edge)
+        return list(candidates)
+    
+    def _calculate_support(self, subgraph):
+        count = sum(1 for g in self.graphs if self._is_subgraph_isomorphic(g, subgraph))
+        return count
+    
+    def _is_subgraph_isomorphic(self, graph, subgraph):
+        subgraph_nx = nx.Graph(subgraph)
+        matcher = nx.algorithms.isomorphism.GraphMatcher(graph, subgraph_nx)
+        return matcher.subgraph_is_isomorphic()
+    
+    def plot_frequent_subgraphs(self):
+        for i, (subgraph, support) in enumerate(self.frequent_subgraphs, start=1):
+            subgraph_nx = nx.Graph(subgraph)
+            plt.figure(figsize=(3, 3))
+            nx.draw(subgraph_nx, with_labels=True, node_color='lightblue', node_size=500)
+            plt.title(f"Subgraph {i} (Support: {support})")
+            plt.show()
+    
+    # Example usage
+    if __name__ == "__main__":
+        # Sample graphs
+        G1 = nx.Graph([(1, 2), (2, 3), (3, 1)])
+        G2 = nx.Graph([(1, 2), (2, 4), (4, 1)])
+        G3 = nx.Graph([(5, 6), (6, 7), (7, 5)])
+    
+        # Run gSpan
+        gspan = gSpan(min_support=2)
+        for G in [G1, G2, G3]:
+            gspan.add_graph(G)
+        
+        gspan.find_frequent_subgraphs()
+    
+        # Output and plot
+        for subgraph, support in gspan.frequent_subgraphs:
+            print(f"Subgraph: {subgraph}, Support: {support}")
+        gspan.plot_frequent_subgraphs()
+    
+</code></pre>
+        <footer style="margin-top: 40px; text-align: center; font-size: 14px; color: #7f8c8d;">
+            Made by SeventyThree
+        </footer>
+
+</body>
+</html>
