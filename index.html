@@ -197,7 +197,43 @@ frequent_itemsets = find_frequent_itemsets(transactions, min_support)
 # Display results
 print("Frequent Itemsets:")
 for itemset, count in frequent_itemsets.items():
-    print(f"{set(itemset)}: {count}")  </code></pre>
+    print(f"{set(itemset)}: {count}")  
+
+or
+
+import pandas as pd
+from mlxtend.preprocessing import TransactionEncoder
+from mlxtend.frequent_patterns import apriori, association_rules
+
+# Step 1: Preparing the dataset
+transactions = [
+    ['m', 'o', 'n', 'k', 'e', 'y'],
+    ['d', 'o', 'n', 'k', 'e', 'y'],
+    ['m', 'u', 'c', 'k', 'y'],
+    ['m', 'a', 'k', 'e'],
+    ['c', 'o', 'o', 'k', 'i', 'e']
+]
+
+# Step 2: Encoding the dataset to a one-hot encoded DataFrame
+te = TransactionEncoder()
+te_ary = te.fit(transactions).transform(transactions)
+df = pd.DataFrame(te_ary, columns=te.columns_)
+
+# Step 3: Applying the Apriori algorithm
+min_support = 0.6  # Minimum support threshold
+frequent_itemsets = apriori(df, min_support=min_support, use_colnames=True)
+
+# Step 4: Generating association rules
+min_confidence = 0.7  # Minimum confidence threshold
+rules = association_rules(frequent_itemsets, metric="confidence", min_threshold=min_confidence)
+
+# Step 5: Output the frequent item sets and association rules
+print("Frequent Item Sets:")
+print(frequent_itemsets)
+
+print("\nAssociation Rules:")
+print(rules[['antecedents', 'consequents', 'support', 'confidence', 'lift']])
+</code></pre>
 
     <h1>EX-4 FP-Growth Algorithm</h1>
     <pre><code>
@@ -583,67 +619,47 @@ import matplotlib.pyplot as plt
 class gSpan:
     def __init__(self, min_support):
         self.min_support = min_support
-        self.frequent_subgraphs = []
+        self.frequent_subgraphs = []  # Initialize the list here
         self.graphs = []
-    
-    def add_graph(self, graph):
-        self.graphs.append(graph)
-    
-    def find_frequent_subgraphs(self):
-        self._gspan([], 0)
-    
+        
+    def add_graph(self, graph): self.graphs.append(graph)
+        
+    def find_frequent_subgraphs(self): self._gspan([], 0)
+        
     def _gspan(self, prefix, support):
         if support >= self.min_support and prefix not in [p[0] for p in self.frequent_subgraphs]:
             self.frequent_subgraphs.append((prefix, support))
         for edge in self._get_candidate_edges(prefix):
             new_prefix = prefix + [edge]
             new_support = self._calculate_support(new_prefix)
-            if new_support >= self.min_support:
-                self._gspan(new_prefix, new_support)
+            if new_support >= self.min_support: self._gspan(new_prefix, new_support)
     
     def _get_candidate_edges(self, prefix):
-        candidates = set()
-        for g in self.graphs:
-            for edge in g.edges():
-                if not prefix or (edge != prefix[-1]):
-                    candidates.add(edge)
-        return list(candidates)
-    
+        return [edge for g in self.graphs for edge in g.edges() if not prefix or edge != prefix[-1]]
+        
     def _calculate_support(self, subgraph):
-        count = sum(1 for g in self.graphs if self._is_subgraph_isomorphic(g, subgraph))
-        return count
-    
+        return sum(1 for g in self.graphs if self._is_subgraph_isomorphic(g, subgraph))
+        
     def _is_subgraph_isomorphic(self, graph, subgraph):
-        subgraph_nx = nx.Graph(subgraph)
-        matcher = nx.algorithms.isomorphism.GraphMatcher(graph, subgraph_nx)
-        return matcher.subgraph_is_isomorphic()
-    
+        return nx.algorithms.isomorphism.GraphMatcher(graph, nx.Graph(subgraph)).subgraph_is_isomorphic()
+        
     def plot_frequent_subgraphs(self):
-        for i, (subgraph, support) in enumerate(self.frequent_subgraphs, start=1):
-            subgraph_nx = nx.Graph(subgraph)
-            plt.figure(figsize=(3, 3))
-            nx.draw(subgraph_nx, with_labels=True, node_color='lightblue', node_size=500)
-            plt.title(f"Subgraph {i} (Support: {support})")
+        for subgraph, support in self.frequent_subgraphs:
+            nx.draw(nx.Graph(subgraph), with_labels=True, node_color='lightblue', node_size=500)
+            plt.title(f"Support: {support}")
             plt.show()
     
     # Example usage
-    if __name__ == "__main__":
-        # Sample graphs
-        G1 = nx.Graph([(1, 2), (2, 3), (3, 1)])
-        G2 = nx.Graph([(1, 2), (2, 4), (4, 1)])
-        G3 = nx.Graph([(5, 6), (6, 7), (7, 5)])
+if __name__ == "__main__":
+    G1 = nx.Graph([(1, 2), (2, 3), (3, 1)])
+    G2 = nx.Graph([(1, 2), (2, 4), (4, 1)])
+    G3 = nx.Graph([(5, 6), (6, 7), (7, 5)])
     
-        # Run gSpan
-        gspan = gSpan(min_support=2)
-        for G in [G1, G2, G3]:
-            gspan.add_graph(G)
-        
-        gspan.find_frequent_subgraphs()
-    
-        # Output and plot
-        for subgraph, support in gspan.frequent_subgraphs:
-            print(f"Subgraph: {subgraph}, Support: {support}")
-        gspan.plot_frequent_subgraphs()
+    gspan = gSpan(min_support=2)
+    for G in [G1, G2, G3]: gspan.add_graph(G)
+    gspan.find_frequent_subgraphs()
+    for subgraph, support in gspan.frequent_subgraphs: print(f"Subgraph: {subgraph}, Support: {support}")
+    gspan.plot_frequent_subgraphs()
     
 </code></pre>
         <footer style="margin-top: 40px; text-align: center; font-size: 14px; color: #7f8c8d;">
